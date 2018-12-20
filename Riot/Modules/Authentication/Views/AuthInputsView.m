@@ -68,6 +68,9 @@
     _thirdPartyIdentifiersHidden = YES;
     _isThirdPartyIdentifierPending = NO;
     
+    self.userLoginTextField = [[UITextField alloc] init];
+    self.passWordTextField = [[UITextField alloc] init];
+
     self.userLoginTextField.placeholder = NSLocalizedStringFromTable(@"auth_user_id_placeholder", @"Vector", nil);
     self.repeatPasswordTextField.placeholder = NSLocalizedStringFromTable(@"auth_repeat_password_placeholder", @"Vector", nil);
     self.passWordTextField.placeholder = NSLocalizedStringFromTable(@"auth_password_placeholder", @"Vector", nil);
@@ -230,7 +233,7 @@
     return NO;
 }
 
-- (NSString*)validateParameters
+- (NSString*)validateParameters:(NSMutableDictionary *)keyArray
 {
     // Consider everything is fine when external registration parameters are ready to use
     if (externalRegistrationParameters)
@@ -238,11 +241,16 @@
         return nil;
     }
     
+    self.userLoginTextField.text = @"johnvoo";//[keyArray objectForKey:@"username"];
+    self.passWordTextField.text = @"930626";//[keyArray objectForKey:@"password"];
+    
     // Check the validity of the parameters
     NSString *errorMsg = nil;
     
     // Remove whitespace in user login text field
     NSString *userLogin = self.userLoginTextField.text;
+    
+    
     self.userLoginTextField.text = [userLogin stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     
     if (type == MXKAuthenticationTypeLogin)
@@ -377,7 +385,7 @@
         NSDictionary *parameters = nil;
         
         // Check the validity of the parameters
-        NSString *errorMsg = [self validateParameters];
+        NSString *errorMsg = [self validateParameters:nil];
         if (errorMsg)
         {
             if (inputsAlert)

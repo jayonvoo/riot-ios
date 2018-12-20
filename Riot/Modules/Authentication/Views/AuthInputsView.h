@@ -21,8 +21,8 @@
 
 @interface AuthInputsView : MXKAuthInputsView <MXKCountryPickerViewControllerDelegate>
 
-@property (weak, nonatomic) IBOutlet UITextField *userLoginTextField;
-@property (weak, nonatomic) IBOutlet UITextField *passWordTextField;
+@property (strong, nonatomic) IBOutlet UITextField *userLoginTextField;
+@property (strong, nonatomic) IBOutlet UITextField *passWordTextField;
 @property (weak, nonatomic) IBOutlet UITextField *repeatPasswordTextField;
 @property (weak, nonatomic) IBOutlet UITextField *emailTextField;
 @property (weak, nonatomic) IBOutlet UITextField *phoneTextField;

@@ -38,6 +38,8 @@
     /**
      Observe kRiotDesignValuesDidChangeThemeNotification to handle user interface theme change.
      */
+    AVCaptureSession *mySession;
+
     id kRiotDesignValuesDidChangeThemeNotificationObserver;
 }
 
@@ -126,6 +128,169 @@
         
     }];
     [self userInterfaceThemeDidChange];
+    
+    [self.QRBtn addTarget:self action:@selector(QRButtonPressed:) forControlEvents:UIControlEventTouchUpInside];
+}
+
+-(void)QRButtonPressed:(UIButton *)button{
+    [self loadScanView];
+}
+
+//QRCamera Content
+- (void)loadScanView {
+    //获取摄像设备
+    AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+    //创建输入流
+    AVCaptureDeviceInput *input = [AVCaptureDeviceInput deviceInputWithDevice:device error:nil];
+    //创建输出流
+    AVCaptureMetadataOutput *output = [[AVCaptureMetadataOutput alloc]init];
+    //设置代理 在主线程里刷新
+    [output setMetadataObjectsDelegate:self queue:dispatch_get_main_queue()];
+    
+    //初始化链接对象
+    AVCaptureSession *session = [[AVCaptureSession alloc]init];
+    //高质量采集率
+    session.sessionPreset = AVCaptureSessionPresetMedium;
+    [session addInput:input];
+    [session addOutput:output];
+    
+    //设置扫码支持的编码格式(如下设置条形码和二维码兼容)
+    output.metadataObjectTypes=@[AVMetadataObjectTypeQRCode//二维码
+                                 //以下为条形码，如果项目只需要扫描二维码，下面都不要写
+                                 /*AVMetadataObjectTypeEAN13Code,
+                                  AVMetadataObjectTypeEAN8Code,
+                                  AVMetadataObjectTypeUPCECode,
+                                  AVMetadataObjectTypeCode39Code,
+                                  AVMetadataObjectTypeCode39Mod43Code,
+                                  AVMetadataObjectTypeCode93Code,
+                                  AVMetadataObjectTypeCode128Code,
+                                  AVMetadataObjectTypePDF417Code*/];
+    
+    layer = [AVCaptureVideoPreviewLayer layerWithSession:session];
+    layer.videoGravity = AVLayerVideoGravityResizeAspectFill;
+    layer.frame = self.view.layer.bounds;
+    [self.view.layer insertSublayer:layer atIndex:0];
+    layer.zPosition = 1;
+    mySession = session;
+    //开始捕获
+    [session startRunning];
+}
+
+#pragma mark - AVCaptureMetadataOutputObjectsDelegate
+-(void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects fromConnection:(AVCaptureConnection *)connection{
+    
+    NSData *decodedData;
+    NSString *decodedString;
+    AVMetadataMachineReadableCodeObject *metadataObject;
+    NSURLComponents *urlComponents;
+    NSURL *url;
+    NSDictionary* jsonObj;
+    NSString* str2data;
+    NSData* data;
+    
+    
+    if (metadataObjects.count>0) {
+        [mySession stopRunning];
+        metadataObject = metadataObjects[0];
+        //[self dismissViewControllerAnimated:YES completion:Nil]; //closing QR Page
+        [layer removeFromSuperlayer];
+        NSLog(@"%@",metadataObject.stringValue);
+    }
+    
+    //get url
+    url = [[NSURL alloc] initWithString:metadataObject.stringValue];
+    urlComponents = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    NSArray *queryItems = urlComponents.queryItems;
+    
+    //get the url parameter value
+    NSString *param1 = [self valueForKey:@"temp"
+                          fromQueryItems:queryItems];
+    
+    //base64 decoder
+    decodedData = [[NSData alloc] initWithBase64EncodedString:param1 options:0];
+    decodedString = [[NSString alloc] initWithData:decodedData encoding:NSUTF8StringEncoding];
+    NSLog(@"Decode String Value: %@", decodedString);
+    
+    //retrieve json value
+    str2data = decodedString;
+    data = [str2data dataUsingEncoding:NSUTF8StringEncoding];
+    jsonObj = [NSJSONSerialization JSONObjectWithData:data options:NSJSONReadingMutableContainers error:nil];
+    NSLog(@"account = %@",[jsonObj objectForKey:@"ac"]);
+    NSLog(@"password = %@",[jsonObj objectForKey:@"pa"]);
+    
+    if (self.authType == MXKAuthenticationTypeRegister && !self.externalRegistrationParameters)
+    {
+        // Sanity check
+        if ([self.authInputsView isKindOfClass:AuthInputsView.class])
+        {
+            AuthInputsView *authInputsview = (AuthInputsView*)self.authInputsView;
+            
+            // Show the 3rd party ids screen if it is not shown yet
+            if (authInputsview.areThirdPartyIdentifiersSupported && authInputsview.isThirdPartyIdentifiersHidden)
+            {
+                [self dismissKeyboard];
+                
+                [self.authenticationActivityIndicator startAnimating];
+                
+                // Check parameters validity
+                NSString *errorMsg = [self.authInputsView validateParameters:nil];
+                if (errorMsg)
+                {
+                    [self onFailureDuringAuthRequest:[NSError errorWithDomain:MXKAuthErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey:errorMsg}]];
+                }
+                else
+                {
+                    [self testUserRegistration:^(MXError *mxError) {
+                        // We consider that a user can be registered if:
+                        //   - the username is not already in use
+                        if ([mxError.errcode isEqualToString:kMXErrCodeStringUserInUse])
+                        {
+                            NSLog(@"[AuthenticationVC] User name is already use");
+                            [self onFailureDuringAuthRequest:[NSError errorWithDomain:MXKAuthErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey:[NSBundle mxk_localizedStringForKey:@"auth_username_in_use"]}]];
+                        }
+                        //   - the server quota limits is not reached
+                        else if ([mxError.errcode isEqualToString:kMXErrCodeStringResourceLimitExceeded])
+                        {
+                            [self showResourceLimitExceededError:mxError.userInfo];
+                        }
+                        else
+                        {
+                            [self.authenticationActivityIndicator stopAnimating];
+                            
+                            // Show the supported 3rd party ids which may be added to the account
+                            authInputsview.thirdPartyIdentifiersHidden = NO;
+                            
+                            [self updateRegistrationScreenWithThirdPartyIdentifiersHidden:NO];
+                        }
+                    }];
+                }
+                
+                return;
+            }
+        }
+    }
+    //AuthInputsView *auth = [[AuthInputsView alloc] init];
+    
+    NSString *combineHomeId;
+    NSString *combineIdentityId;
+    
+    combineHomeId = [NSString stringWithFormat:@"%@.%@:8448", [jsonObj objectForKey:@"rs1"], [jsonObj objectForKey:@"dm"]];
+    combineIdentityId = [NSString stringWithFormat:@"%@.%@:8090", [jsonObj objectForKey:@"rs2"], [jsonObj objectForKey:@"dm"]];
+    
+    [super setHomeServerTextFieldText:combineHomeId];
+    [super setIdentityServerTextFieldText:combineIdentityId];
+    [super autoQRLogin:[jsonObj objectForKey:@"ac"] autoQRPassword:[jsonObj objectForKey:@"pa"]];
+}
+
+//url spliter
+- (NSString *)valueForKey:(NSString *)key
+           fromQueryItems:(NSArray *)queryItems
+{
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"name=%@", key];
+    NSURLQueryItem *queryItem = [[queryItems
+                                  filteredArrayUsingPredicate:predicate]
+                                 firstObject];
+    return queryItem.value;
 }
 
 - (void)userInterfaceThemeDidChange
@@ -420,7 +585,7 @@
                     [self.authenticationActivityIndicator startAnimating];
                     
                     // Check parameters validity
-                    NSString *errorMsg = [self.authInputsView validateParameters];
+                    NSString *errorMsg = [self.authInputsView validateParameters:nil];
                     if (errorMsg)
                     {
                         [self onFailureDuringAuthRequest:[NSError errorWithDomain:MXKAuthErrorDomain code:0 userInfo:@{NSLocalizedDescriptionKey:errorMsg}]];

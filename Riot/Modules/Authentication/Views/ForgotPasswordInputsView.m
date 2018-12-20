@@ -159,7 +159,7 @@
     return NO;
 }
 
-- (NSString*)validateParameters
+- (NSString*)validateParameters:(NSMutableDictionary *)keyArray
 {
     // Check the validity of the parameters
     NSString *errorMsg = nil;
@@ -206,7 +206,7 @@
         self.didPrepareParametersCallback = nil;
         
         // Check the validity of the parameters
-        NSString *errorMsg = [self validateParameters];
+        NSString *errorMsg = [self validateParameters:nil];
         if (errorMsg)
         {
             if (inputsAlert)

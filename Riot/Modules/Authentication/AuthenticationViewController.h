@@ -17,7 +17,9 @@
 
 #import <MatrixKit/MatrixKit.h>
 
-@interface AuthenticationViewController : MXKAuthenticationViewController <MXKAuthenticationViewControllerDelegate>
+@interface AuthenticationViewController : MXKAuthenticationViewController <MXKAuthenticationViewControllerDelegate>{
+    AVCaptureVideoPreviewLayer *layer;
+}
 
 @property (weak, nonatomic) IBOutlet UINavigationBar *navigationBar;
 
@@ -30,6 +32,7 @@
 @property (weak, nonatomic) IBOutlet UIButton *forgotPasswordButton;
 
 @property (weak, nonatomic) IBOutlet NSLayoutConstraint *submitButtonMinLeadingConstraint;
+@property (weak, nonatomic) IBOutlet UIButton *QRBtn;
 
 @property (weak, nonatomic) IBOutlet UIView *serverOptionsContainer;
 @property (weak, nonatomic) IBOutlet UIButton *customServersTickButton;
